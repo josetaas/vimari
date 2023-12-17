@@ -1,4 +1,5 @@
 import SafariServices
+import CoreGraphics
 
 enum ActionType: String {
     case openLinkInTab
@@ -6,6 +7,8 @@ enum ActionType: String {
     case tabBackward
     case closeTab
     case updateSettings
+    case scrollStart
+    case scrollStop
 }
 
 enum InputAction: String {
@@ -59,6 +62,10 @@ class SafariExtensionHandler: SFSafariExtensionHandler {
             changeTab(withDirection: .backward, from: page)
         case .closeTab:
             closeTab(from: page)
+        case .scrollStart:
+            scrollStart(direction: userInfo?["direction"] as! String, page: page)
+        case .scrollStop:
+            scrollStop(page: page)
         case .updateSettings:
             updateSettings(page: page)
         case .none:
@@ -133,6 +140,39 @@ class SafariExtensionHandler: SFSafariExtensionHandler {
             tab in
             tab.close()
         }
+    }
+
+    var currentKey: CGKeyCode?
+
+    private func scrollStart(direction: String, page: SFSafariPage) {
+        let src = CGEventSource(stateID: .hidSystemState)
+
+        switch direction {
+            case "up":
+                currentKey = 0x7E // Corresponds to up arrow key
+            case "down":
+                currentKey = 0x7D // Corresponds to down arrow key
+            case "left":
+                currentKey = 0x7B // Corresponds to left arrow key
+            case "right":
+                currentKey = 0x7C // Corresponds to right arrow key
+            default:
+                return
+        }
+
+        if let key = currentKey {
+            let keyDown = CGEvent(keyboardEventSource: src, virtualKey: key, keyDown: true)
+            keyDown?.post(tap: .cghidEventTap)
+        }
+    }
+
+    private func scrollStop(page: SFSafariPage) {
+        let src = CGEventSource(stateID: .hidSystemState)
+        if let key = currentKey {
+            let keyUp = CGEvent(keyboardEventSource: src, virtualKey: key, keyDown: false)
+            keyUp?.post(tap: .cghidEventTap)
+        }
+        currentKey = nil
     }
     
     // MARK: Settings

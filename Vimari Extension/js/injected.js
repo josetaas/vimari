@@ -28,6 +28,20 @@ var topWindow = (window.top === window),
 	hudDuration = 5000,
     extensionCommunicator = SafariExtensionCommunicator(messageHandler);
 
+var scrollActionMap = {
+	'scrollDown':
+        function() { extensionCommunicator.requestScrollStart('down'); },
+
+	'scrollUp':
+        function() { extensionCommunicator.requestScrollStart('up'); },
+
+	'scrollLeft':
+        function() { extensionCommunicator.requestScrollStart('left'); },
+
+	'scrollRight':
+        function() { extensionCommunicator.requestScrollStart('right'); },
+}
+
 var actionMap = {
 	'hintToggle' : function() {
 		HUD.showForDuration('Open link in current tab', hudDuration);
@@ -42,18 +56,6 @@ var actionMap = {
 
 	'tabBack':
         function() { extensionCommunicator.requestTabBackward() },
-
-	'scrollDown':
-		function() { customScrollBy(0, settings.scrollSize); },
-
-	'scrollUp':
-		function() { customScrollBy(0, -settings.scrollSize); },
-
-	'scrollLeft':
-		function() { customScrollBy(-settings.scrollSize, 0); },
-
-	'scrollRight':
-		function() { customScrollBy(settings.scrollSize, 0); },
 
 	'goBack':
 		function() { window.history.back(); },
@@ -170,10 +172,22 @@ function bindKeyCodesToActions(settings) {
 		for (var actionName in actionMap) {
 			if (actionMap.hasOwnProperty(actionName)) {
 				var keyCode = getKeyCode(actionName);
-				Mousetrap.bind(keyCode, executeAction(actionName), 'keydown');
+                try {
+                    Mousetrap.bind(keyCode, executeAction(actionName), 'keydown');
+                } catch (e) {
+                    console.log("Failed to bind", keyCode, e);
+                }
 			}
 		}
-	}
+
+        for (var scrollActionName in scrollActionMap) {
+            if (scrollActionMap.hasOwnProperty(scrollActionName)) {
+                var keyCode = getKeyCode(scrollActionName);
+                Mousetrap.bind(keyCode, executeAction(scrollActionName), 'keydown');
+                Mousetrap.bind(keyCode, function() { extensionCommunicator.requestScrollStop(); }, 'keyup');
+            }
+        }
+    }
 }
 
 function enterNormalMode() {
@@ -212,8 +226,11 @@ function executeAction(actionName) {
 		if (linkHintsModeActivated || !extensionActive || insertMode)
 			return;
 
-		//Call the action function
-		actionMap[actionName]();
+        if (actionName in scrollActionMap) {
+            scrollActionMap[actionName]();
+        } else {
+            actionMap[actionName]();
+        }
 
 		// Tell mousetrap to stop propagation
 		return false;
